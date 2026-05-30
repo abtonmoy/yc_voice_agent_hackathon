@@ -42,7 +42,7 @@ yc-voice-agents-hackathon/             # the cloned starter repo (single git roo
   README.md                           # starter docs (unchanged)
   server/                             # WHAT SHIPS TO PIPECAT CLOUD (keep lean)
     bot-nemotron.py        # 🛠 fork: replace prompt/tools, add event hooks (starter file)
-    bot-gpt.py             # 🛠 same edits, GPT-4.1 A/B variant (starter file)
+    bot-claude.py          # 🛠 same edits, Claude A/B variant (fork of starter bot-gpt.py; add `anthropic` extra to pyproject)
     mock_backend.py        # 🛠 replace BOUQUETS/KNOWN_CUSTOMERS with INCIDENTS/ENGINEERS
     nemotron_llm.py        # ✅ starter file — defines VLLMOpenAILLMService (TTFB fix); used as-is in MVP. Opt A extends this file with AdaptiveThinkingLLMService (see §13)
     nvidia_stt.py          # ✅ starter file — NVidiaWebSocketSTTService; used as-is
@@ -331,7 +331,8 @@ The starter `.env.example` already ships with these — keep them, edit values a
 # starter — DO NOT remove
 TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN     # telephony
 GRADIUM_API_KEY, GRADIUM_VOICE_ID         # TTS
-OPENAI_API_KEY                            # bot-gpt.py A/B
+ANTHROPIC_API_KEY                         # bot-claude.py A/B
+ANTHROPIC_MODEL=claude-haiku-4-5-20251001 # Claude model for the A/B bot
 NVIDIA_ASR_URL                            # Nemotron Speech Streaming (STT)
 NEMOTRON_LLM_URL                          # Nemotron 3 Super 120B endpoint
 NEMOTRON_ENABLE_THINKING=false            # global thinking default; Opt A overrides per-turn (§13)
@@ -374,7 +375,7 @@ caller connects ─► session_start
 ## 12. Failure modes / fallbacks
 | Failure | Fallback |
 |---|---|
-| Nemotron endpoint down | switch to `bot-gpt.py` (same tools) |
+| Nemotron endpoint down | switch to `bot-claude.py` (same tools) |
 | Twilio outbound blocked | announce-only: skip `call_engineer`; `routing_decision` still drives UI |
 | Relay down | call is unaffected (fire-and-forget); dashboard just goes stale |
 | Live patch flaky | propose-only: `fix_proposed` renders, skip `apply` |

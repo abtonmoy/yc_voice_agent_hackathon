@@ -6,7 +6,7 @@ Paste-ready content for Phase 3 (C1–C4) and the Lane-A loop (A1–A3). Author 
 1. `/setup-mcp` → connect agent (provider **Pipecat**, Pipecat Cloud key, agent name `flower-bot`) → note `agent_id`.
 2. `/create-metric` ×9 (Section 2).
 3. `/manual-create-update-eval` ×9 scenarios (Section 4), each tagged with its metrics + persona.
-4. `/run-evals` → baseline. Re-run on `bot-gpt.py` for the A/B.
+4. `/run-evals` → baseline. Re-run on `bot-claude.py` for the A/B.
 5. `cekura-self-improving-agent` loop, redeploy = `pc cloud deploy`.
 
 > **Determinism:** routing scenarios pin `DEMO_NOW` so "who's awake" is fixed. All routing scenarios below use **`DEMO_NOW = 2026-05-30 03:00 America/Los_Angeles`** unless noted. Set it via the env override the `find_on_call_engineer` tool reads.
@@ -129,7 +129,7 @@ Same as E1, but the seeded code defect (e.g. `get_logs(service)` returns empty w
 ## 5. Run order & success gates
 
 1. **Baseline (C4):** `/run-evals` all 9 on **Nemotron**. Record pass rate. You *want* E9 failing and ideally 1–2 others (E2/E4 discrimination, E8 routing) shaky — a 100% baseline means the loop has nothing to show.
-2. **A/B:** same suite on `bot-gpt.py`; capture Nemotron-vs-GPT pass rate + latency (feeds L1/L3).
+2. **A/B:** same suite on `bot-claude.py`; capture Nemotron-vs-Claude pass rate + latency (feeds L1/L3).
 3. **Loop (A2):** `cekura-self-improving-agent`, redeploy `pc cloud deploy`, ≥2 iterations. Capture (a) curve climbing, (b) a regression caught on full-suite rerun, (c) E9 resisting prompt fixes → code guard.
 4. **Lock:** the scenarios that pass clean twice on Nemotron become the live demo set (E1 is the headline; E7/E8 the routing beat; P2 scenario is the interrupt beat).
 

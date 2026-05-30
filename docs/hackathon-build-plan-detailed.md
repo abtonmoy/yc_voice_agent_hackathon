@@ -18,7 +18,7 @@ The official repo (`github.com/pipecat-ai/yc-voice-agents-hackathon`) removed ou
 
 - **No self-hosted inference.** Models are hosted on AWS; you point env vars at given URLs. The vLLM / Nemotron-Nano / Mamba-hybrid risk is **gone**. (LLM is now **Nemotron 3 Super 120B**, hosted.)
 - **No tunnel/TLS fight.** Deploy target is **Pipecat Cloud**; the Twilio TwiML Bin points at `wss://api.pipecat.daily.co/ws/twilio`. The public `wss://` is handled — you just configure Twilio.
-- **Two starters, not one.** `bot-gpt.py` (GPT-4.1) and `bot-nemotron.py` (Nemotron). Nemotron is our primary (judging wants NVIDIA OSS models); GPT is both the fallback **and** a Cekura A/B comparison beat.
+- **Two bots.** `bot-claude.py` (Claude — forked from the starter's `bot-gpt.py`) and `bot-nemotron.py` (Nemotron). Nemotron is our primary (judging wants NVIDIA OSS models); Claude is both the fallback **and** a Cekura A/B comparison beat.
 - **TTS is Gradium** (not Magpie). **Cekura runs from Claude Code** via its MCP plugin (`/cekura-report`, provider = `Pipecat`).
 
 **Provided stack (V2 — our primary):**
@@ -28,7 +28,7 @@ NEMOTRON_LLM_URL=http://nemotron-fleet-alb-1322439314.us-west-2.elb.amazonaws.co
 NEMOTRON_LLM_MODEL=nvidia/nemotron-3-super         # Nemotron 3 Super 120B
 # TTS = Gradium (GRADIUM_API_KEY).  Transports: SmallWebRTC (local) + Twilio (phone).
 ```
-**V1 (fallback / comparison):** GPT-4.1 via OpenAI Responses API + Gradium STT/TTS (`OPENAI_API_KEY`, `GRADIUM_API_KEY`).
+**V1 (fallback / comparison):** Claude (Haiku 4.5) via Pipecat `AnthropicLLMService` + Gradium STT/TTS (`ANTHROPIC_API_KEY`, `ANTHROPIC_MODEL`, `GRADIUM_API_KEY`). Add the `anthropic` extra to `pyproject.toml`.
 
 ---
 
@@ -59,8 +59,8 @@ Derived internal anchors: **Freeze 3:30 · Record backup 5:15 · Submit 5:45** (
 
 ### S1 — Accounts + credits
 **Actions:**
-1. Log into: Cekura (`dashboard.cekura.ai` — credits auto-apply for approved hackers), Gradium (`gradium.ai` — credit code given on-site), OpenAI, Twilio (`twil.io/yc-hack` for credits), Pipecat Cloud (`pipecat.daily.co/sign-up`).
-2. One `.env` scratch: `OPENAI_API_KEY`, `GRADIUM_API_KEY`, `TWILIO_*` (SID/token + a voice number), plus the three NVIDIA endpoint vars above. (No NVIDIA key needed — the endpoints are open to the event.)
+1. Log into: Cekura (`dashboard.cekura.ai` — credits auto-apply for approved hackers), Gradium (`gradium.ai` — credit code given on-site), Anthropic, Twilio (`twil.io/yc-hack` for credits), Pipecat Cloud (`pipecat.daily.co/sign-up`).
+2. One `.env` scratch: `ANTHROPIC_API_KEY`, `GRADIUM_API_KEY`, `TWILIO_*` (SID/token + a voice number), plus the three NVIDIA endpoint vars above. (No NVIDIA key needed — the endpoints are open to the event.)
 3. Install the Pipecat CLI and log in: `uv tool install pipecat-ai-cli && pc cloud auth login`.
 
 **Watch:** Twilio trial restrictions (verified caller IDs) — provision a voice-capable number now, add credits early.
@@ -78,10 +78,10 @@ Derived internal anchors: **Freeze 3:30 · Record backup 5:15 · Submit 5:45** (
 
 ### S3 ⛔ — Both starters run; pick the primary
 **Actions:**
-1. `uv run bot-gpt.py` too — confirm GPT-4.1 path also does a voice round-trip.
-2. **Primary = `bot-nemotron.py`** (judging favors NVIDIA OSS). Keep `bot-gpt.py` as fallback + the Cekura A/B comparison.
+1. `uv run bot-claude.py` too — confirm the Claude path also does a voice round-trip.
+2. **Primary = `bot-nemotron.py`** (judging favors NVIDIA OSS). Keep `bot-claude.py` as fallback + the Cekura A/B comparison.
 
-**Watch:** if Nemotron-120B is noticeably slower/flakier than GPT for tool-calling, note it now — that's data for the latency/quality slide, not a reason to drop it.
+**Watch:** if Nemotron-120B is noticeably slower/flakier than Claude for tool-calling, note it now — that's data for the latency/quality slide, not a reason to drop it.
 **DONE WHEN:** both bots verified to round-trip; Nemotron chosen as primary.
 
 ### S4 🔀 — Trace-view source decision
@@ -91,7 +91,7 @@ Derived internal anchors: **Freeze 3:30 · Record backup 5:15 · Submit 5:45** (
 
 **DONE WHEN:** Yes/No recorded. Yes → D1 is free. No → D1 = build a tiny log tailer (Phase 4).
 
-**🔀 GATE @ 10:00:** Nemotron round-trips → primary stays Nemotron. Nemotron path broken and not fixed fast → primary = GPT-4.1, keep Nemotron as the "we also ran the OSS model" beat. **Pipeline stays alive either way — this gate is now low-stakes** (both are one `uv run` away).
+**🔀 GATE @ 10:00:** Nemotron round-trips → primary stays Nemotron. Nemotron path broken and not fixed fast → primary = Claude, keep Nemotron as the "we also ran the OSS model" beat. **Pipeline stays alive either way — this gate is now low-stakes** (both are one `uv run` away).
 
 ---
 
@@ -249,12 +249,12 @@ You're editing Field & Flower into the triage bot. Work in **text mode first** w
 **Actions:** a calm engineer and a stressed/interruptive one who redirects mid-investigation ("no — the canary, not the fleet"). The interruptive persona doubles as your live "interrupt it" demo beat.
 **DONE WHEN:** both personas configured.
 
-### C4 ⛔ — Baseline run (+ the GPT-vs-Nemotron A/B)
+### C4 ⛔ — Baseline run (+ the Claude-vs-Nemotron A/B)
 **Actions:**
 1. Run the suite against the **Nemotron** bot; record the baseline pass rate.
-2. **Bonus / headline:** run the *same* suite against the **GPT-4.1** bot and capture the side-by-side (pass rate + latency). This is the README's suggested comparison and hits both judging criteria.
+2. **Bonus / headline:** run the *same* suite against the **Claude** bot and capture the side-by-side (pass rate + latency). This is the README's suggested comparison and hits both judging criteria.
 **Watch:** you *want* some Nemotron failures — a 100% baseline means scenarios are too easy and the loop has nothing to show.
-**DONE WHEN:** a baseline pass-rate number exists (ideally Nemotron vs GPT side-by-side).
+**DONE WHEN:** a baseline pass-rate number exists (ideally Nemotron vs Claude side-by-side).
 
 ---
 
@@ -282,16 +282,16 @@ You're editing Field & Flower into the triage bot. Work in **text mode first** w
 
 ### Lane B — Latency
 
-**L1 ⛔ — GPT-4.1 vs Nemotron, measured**
+**L1 ⛔ — Claude vs Nemotron, measured**
 **Actions:** from C4's A/B, pull V2V latency for both models on the same scenarios. (Prefix-cache toggling is *not* available — the model is hosted — so this comparison is the latency headline instead.)
-**DONE WHEN:** before/after-style table: GPT vs Nemotron latency (and quality) recorded.
+**DONE WHEN:** before/after-style table: Claude vs Nemotron latency (and quality) recorded.
 
 **L2 — First-chunk TTS streaming**
 **Actions:** confirm Gradium TTS streams first audio on sentence boundary (Pipecat chunks on sentences); measure TTFB-to-first-audio. The *perceived* latency win.
 **DONE WHEN:** first-audio latency recorded.
 
 **L3 ⛔ — Waterfall slide**
-**Actions:** one slide: ASR → turn-detect → LLM TTFT → TTS first-chunk → network, real numbers, GPT-vs-Nemotron + TTS-streaming annotated; one headline V2V number (measured on the **deployed** path).
+**Actions:** one slide: ASR → turn-detect → LLM TTFT → TTS first-chunk → network, real numbers, Claude-vs-Nemotron + TTS-streaming annotated; one headline V2V number (measured on the **deployed** path).
 **Watch:** static slide beats live numbers under pressure.
 **DONE WHEN:** slide done with real numbers.
 
@@ -313,7 +313,7 @@ You're editing Field & Flower into the triage bot. Work in **text mode first** w
 **DONE WHEN:** clean recording saved locally.
 
 **F3 ⛔ — Submission**
-**Actions:** write it around the artifacts — (1) live triage on **Nemotron**, (2) **autonomous outbound routing** (follow-the-sun paging to the right awake engineer), (3) **approval-gated code fix on the call** (diff appears live in the trace), (4) Cekura pass-rate curve + regression/escalation *including routing-decision scoring*, (5) latency table (GPT vs Nemotron). Lead with the problem ("paged, no laptop"); frame the closed loop detect→diagnose→route→fix; name the follow-the-sun page and the on-call code fix as the unique twists; call out NVIDIA OSS model + Cekura loop (the two things judges asked for).
+**Actions:** write it around the artifacts — (1) live triage on **Nemotron**, (2) **autonomous outbound routing** (follow-the-sun paging to the right awake engineer), (3) **approval-gated code fix on the call** (diff appears live in the trace), (4) Cekura pass-rate curve + regression/escalation *including routing-decision scoring*, (5) latency table (Claude vs Nemotron). Lead with the problem ("paged, no laptop"); frame the closed loop detect→diagnose→route→fix; name the follow-the-sun page and the on-call code fix as the unique twists; call out NVIDIA OSS model + Cekura loop (the two things judges asked for).
 **DONE WHEN:** drafted.
 
 **F4 — Rehearse twice**
@@ -331,7 +331,7 @@ You're editing Field & Flower into the triage bot. Work in **text mode first** w
 
 **X2 — Concurrency clip:** run 2–3 Cekura sessions at once; record latency holding under load. Only if it's a clean clip.
 
-**X3 — Model-swap clip:** one demo line — "same agent, swap `bot-nemotron.py` ↔ `bot-gpt.py`, Cekura re-scores in minutes." Reinforces the eval-driven story.
+**X3 — Model-swap clip:** one demo line — "same agent, swap `bot-nemotron.py` ↔ `bot-claude.py`, Cekura re-scores in minutes." Reinforces the eval-driven story.
 
 ---
 
@@ -340,8 +340,8 @@ You're editing Field & Flower into the triage bot. Work in **text mode first** w
 - **Non-negotiable safety invariant: the agent never modifies code without an explicit verbal "yes" from the engineer, live on the call.** No silent fixes, ever. Diagnose and propose freely; *apply* only on consent, scoped to the root cause, with the diff shown. Enforced in code (two-step `propose` → `apply(engineer_approved)`), in the prompt (I3), and scored by Cekura (T4). This is the line that makes autonomous remediation trustworthy — protect it harder than any feature.
 - The **⛔ chain** is the demo. Pull mentors (Pipecat/Daily, Cekura, Twilio, NVIDIA — all on-site) onto at-risk ⛔ tasks first.
 - **Local WebRTC → Pipecat Cloud → Twilio, in that order.** The public `wss://` is Pipecat Cloud's; don't build TLS yourself.
-- **Judges asked for two things:** great Cekura usage to improve the agent, and NVIDIA OSS models. Nemotron primary + the Cekura loop + GPT-vs-Nemotron A/B nails both.
+- **Judges asked for two things:** great Cekura usage to improve the agent, and NVIDIA OSS models. Nemotron primary + the Cekura loop + Claude-vs-Nemotron A/B nails both.
 - **Freeze 3:30, record 5:15, submit 5:45.** Non-negotiable.
-- Solo? Phase 4 lanes go sequential → finish **Lane A (the curve)** first; latency collapses to the GPT-vs-Nemotron table.
+- Solo? Phase 4 lanes go sequential → finish **Lane A (the curve)** first; latency collapses to the Claude-vs-Nemotron table.
 - **Layer 2 (routing) is the second act, not the spine.** Triage + Cekura loop work *first*. The routing brain (R1/R2) is cheap and text-testable — build it early; the outbound call (R3) is the risky part — if it's not solid by freeze, ship **announce-only (R4)** and don't look back.
-- The self-hosting risk is gone — don't reintroduce it. If a hosted endpoint is down, switch bots (`bot-gpt.py`) and keep moving; revisit nothing.
+- The self-hosting risk is gone — don't reintroduce it. If a hosted endpoint is down, switch bots (`bot-claude.py`) and keep moving; revisit nothing.

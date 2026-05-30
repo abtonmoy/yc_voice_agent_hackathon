@@ -153,7 +153,7 @@ Same `Actions` / `Watch` / `DONE WHEN` shape as the build plan. Tasks are depend
 4. Add the `<conf>` instruction at the end of the static block (not in dynamic content) — it's the same every turn.
 
 **Watch:** vLLM's prefix cache keys on the byte-identical prefix. ONE changed character invalidates the cache. Lint with `assert prompt == EXPECTED_PROMPT` in a unit test. This is the precondition that lets A and H inject per-turn signals without paying the cache miss.
-**Reconciling with build-plan L1:** that note says *"prefix-cache toggling is not available — the model is hosted."* Correct — there is no server-side toggle we can flip. This optimization doesn't toggle anything; it makes the *client-side* prefix byte-identical so the hosted vLLM's already-running prefix cache hits reliably across turns and calls. Different lever, no conflict — L1's GPT-vs-Nemotron table is still the headline; B is an additional row in §9's table.
+**Reconciling with build-plan L1:** that note says *"prefix-cache toggling is not available — the model is hosted."* Correct — there is no server-side toggle we can flip. This optimization doesn't toggle anything; it makes the *client-side* prefix byte-identical so the hosted vLLM's already-running prefix cache hits reliably across turns and calls. Different lever, no conflict — L1's Claude-vs-Nemotron table is still the headline; B is an additional row in §9's table.
 **DONE WHEN:** system prompt is byte-identical across 5 consecutive calls; TTFT on turn 2 is measurably lower than turn 1.
 
 ### C ⛔ — Pre-cached TTS for fixed phrases
@@ -278,7 +278,7 @@ This loop is **post-MVP** (see Section 0). It does not splice into Phase 1 — i
 
 **Strict sequencing (the safe path):**
 1. Finish Phase 0 → 1 → 2 → 3 on the **stock agent**. Do not start this loop yet.
-2. Run C4 baseline (Nemotron + GPT A/B). Capture numbers — that's the "before" column forever.
+2. Run C4 baseline (Nemotron + Claude A/B). Capture numbers — that's the "before" column forever.
 3. Apply this loop in dependency order (Section 6): B → C → G → A → H → E, each behind its own env toggle.
 4. After each piece lands, re-run the affected eval scenarios as a sanity check (B → spot-check TTFT; C → spot-check first-audio; A → re-run E2/E4; H → re-run E5; E → re-run E1).
 5. Once all six are live and toggle-tested, run the full Cekura suite again — that's the "after" column.
