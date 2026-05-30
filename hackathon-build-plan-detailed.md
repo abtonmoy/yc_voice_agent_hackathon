@@ -6,6 +6,7 @@ Companion to the task breakdown. Every task has: **Actions** (what to do), **Wat
 
 - **Layer 1 — Triage:** you phone it when paged with no laptop; it calls diagnostic tools over correlated incident fixtures, converges on a root cause out loud, and pushes you an RCA. Same pipeline, new domain.
 - **Layer 2 — Smart on-call routing (the autonomous act):** an incident fires, the agent triages it, then looks up an **engineer directory**, figures out who's actually *on-shift right now* (location → timezone → local working hours) **and** owns the affected system (team/expertise match), and **places a real outbound call** to that engineer to brief them. Follow-the-sun paging: never wake the person it's 3 AM for. The routing decision is itself Cekura-scorable, which ties this layer straight into the judging centerpiece.
+- **Layer 3 — Remediation (the capstone):** a **sample repo** of the monitored service carries planted bugs that match each incident's root cause. *On the call*, the agent locates the bug from the logs, explains the fix, and — **only after the engineer says "yes"** — applies a pre-staged patch locally and shows the diff in the trace view. Approval-gated: never applies without verbal consent; patch scoped to the root cause; leaves a reviewable diff. Not every incident is code (cert expiry is ops → propose a runbook, don't patch). Closes the loop: detect → diagnose → route → **fix**.
 
 **Golden rule:** if a step isn't on the critical path (⛔) and it's fighting you, skip it and move on. Working-and-narrow beats broad-and-broken.
 
@@ -118,7 +119,7 @@ You're editing Field & Flower into the triage bot. Work in **text mode first** w
 
 ### I3 ⛔ — Triage system prompt (replace the flower prompt)
 **Actions:**
-1. Role = on-call triage assistant; goal = find root cause; behavior = call diagnostics in a sane order, synthesize aloud, end with a ranked hypothesis; **constraint = read-only — propose remediation, never execute.**
+1. Role = on-call triage assistant; goal = find root cause; behavior = call diagnostics in a sane order, synthesize aloud, end with a ranked hypothesis; **constraint = approval-gated remediation — diagnose freely, but apply a code fix only after explicit verbal "yes" from the engineer, and only the patch scoped to the root cause (see Layer 3). For non-code incidents, propose a runbook, don't patch.**
 2. Test in **text mode first** so you debug reasoning, not audio+reasoning at once.
 
 **Watch:** keep the static block (role + tool schemas + constraints) stable at the front — clean prefix, and later the slot where retrieved memory pins (stretch X1).
@@ -159,6 +160,38 @@ You're editing Field & Flower into the triage bot. Work in **text mode first** w
 **DONE WHEN:** routing decision is spoken + visible; demo works even with outbound calling disabled.
 
 **Demo beat:** "3 AM in SF. Agent diagnoses a payments-DB pool exhaustion. Diego (SF, frontend) is asleep; Priya (London, mid-morning, owns the DB) is on-shift — **agent pages Priya.** Her phone's ringing." → live brief.
+
+---
+
+## Layer 3 — Remediation (the capstone: fix the code, on the call)
+
+**The guardrail flips — carefully.** The agent now *applies a fix*, but **approval-gated**: never without an explicit verbal "yes" on the call; patch scoped to the diagnosed root cause; leaves a reviewable diff in the trace view, not a silent prod change. **Not every incident is code-fixable** — #3 (cert expiry) is ops → propose a rotation/runbook, don't patch. That distinction is a feature, not a gap.
+
+**Sequencing & scope:** built **last**, after triage + routing + Cekura are solid. **Demo-scoped to incident #1** (others stay propose-only). Pre-staged patches + local apply + diff-to-trace — **no GitHub, no redeploy**. Solo and short on time? Cekura loop wins the pre-freeze hours; remediation drops to **propose-only** (needs only M1+M2, both cheap and pre-buildable). M1 especially should be done **before the event**.
+
+### M1 — Sample repo with planted bugs (PRE-EVENT if you can)
+**Actions:** a tiny monitored service (`db.py`, `batch_jobs.py`, `tax_service.py`) with one planted bug per code-fixable incident (#1, #2, #4). Make the fixtures' deploys (`abc123`, `def456`) **real commits** so `get_deploy_history()` can read `git log`. Stage a known-correct patch per incident.
+**Watch:** keep each bug a 1–5 line, obviously-correct fix so the diff reads clean from the back of the room.
+**DONE WHEN:** each code-fixable incident maps to a file+line + a staged patch.
+
+### M2 — Repo tools
+**Actions:** `read_repo_file(path)` and `propose_code_fix(incident_id)` → returns the staged unified diff + a plain-English summary the agent speaks. The LLM decides *when* to call it.
+**DONE WHEN:** for incident #1 the agent can speak the root-cause file+line and the proposed change.
+
+### M3 ⛔(for this layer) — `apply_code_fix` (approval-gated)
+**Actions:** enforce the gate in **code**, not just the prompt — two-step so the LLM can't skip consent:
+1. `propose_code_fix(incident_id)` sets a *pending proposal* and returns the diff the agent speaks ("want me to apply this?").
+2. `apply_code_fix(engineer_approved: bool)` writes the file **only if** `engineer_approved is True` AND a matching pending proposal exists. No pending proposal, or `engineer_approved` not set → hard refuse + log the refusal. Then it writes the patched file locally and emits the diff as a structured event. No-op for non-code incidents (#3) → propose a runbook instead.
+**Watch:** never let a single tool both decide and apply — the consent must come from a *separate* engineer turn. That gate *is* the safety story; demo it (say "no" once, show nothing changes).
+**DONE WHEN:** on incident #1, "yes" → file patched + diff event emitted; "no" (or silence) → no change, refusal logged.
+
+### M4 — Diff in the trace view (rides on D1)
+**Actions:** render the applied diff in the trace view alongside `ALERT → tool → hypothesis → RCA → fix`.
+**DONE WHEN:** the fix diff appears, legible, synced to the spoken "I've applied the fix."
+
+**Gold (stretch):** redeploy the patched service + re-run the incident in Cekura → the previously-failing scenario flips green. The agent closing its own loop, scored by your centerpiece.
+
+**Demo beat (capstone):** after diagnosis — "The bug's in `db.py` line 42: deploy abc123 created the pool with no max size. I can apply a one-line cap. Want me to?" → "Yes." → diff appears in the trace → "Done — here's the change."
 
 ---
 
@@ -280,7 +313,7 @@ You're editing Field & Flower into the triage bot. Work in **text mode first** w
 **DONE WHEN:** clean recording saved locally.
 
 **F3 ⛔ — Submission**
-**Actions:** write it around the artifacts — (1) live triage on **Nemotron**, (2) **autonomous outbound routing** (follow-the-sun paging to the right awake engineer), (3) Cekura pass-rate curve + regression/escalation *including routing-decision scoring*, (4) latency table (GPT vs Nemotron). Lead with the problem ("paged, no laptop"); name the CodeBug-escalation and the follow-the-sun outbound page as the two unique twists; call out NVIDIA OSS model + Cekura loop (the two things judges asked for).
+**Actions:** write it around the artifacts — (1) live triage on **Nemotron**, (2) **autonomous outbound routing** (follow-the-sun paging to the right awake engineer), (3) **approval-gated code fix on the call** (diff appears live in the trace), (4) Cekura pass-rate curve + regression/escalation *including routing-decision scoring*, (5) latency table (GPT vs Nemotron). Lead with the problem ("paged, no laptop"); frame the closed loop detect→diagnose→route→fix; name the follow-the-sun page and the on-call code fix as the unique twists; call out NVIDIA OSS model + Cekura loop (the two things judges asked for).
 **DONE WHEN:** drafted.
 
 **F4 — Rehearse twice**
@@ -304,6 +337,7 @@ You're editing Field & Flower into the triage bot. Work in **text mode first** w
 
 ## Reminders that override everything
 
+- **Non-negotiable safety invariant: the agent never modifies code without an explicit verbal "yes" from the engineer, live on the call.** No silent fixes, ever. Diagnose and propose freely; *apply* only on consent, scoped to the root cause, with the diff shown. Enforced in code (two-step `propose` → `apply(engineer_approved)`), in the prompt (I3), and scored by Cekura (T4). This is the line that makes autonomous remediation trustworthy — protect it harder than any feature.
 - The **⛔ chain** is the demo. Pull mentors (Pipecat/Daily, Cekura, Twilio, NVIDIA — all on-site) onto at-risk ⛔ tasks first.
 - **Local WebRTC → Pipecat Cloud → Twilio, in that order.** The public `wss://` is Pipecat Cloud's; don't build TLS yourself.
 - **Judges asked for two things:** great Cekura usage to improve the agent, and NVIDIA OSS models. Nemotron primary + the Cekura loop + GPT-vs-Nemotron A/B nails both.
