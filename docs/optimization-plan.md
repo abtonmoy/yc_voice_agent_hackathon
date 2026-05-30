@@ -153,6 +153,7 @@ Same `Actions` / `Watch` / `DONE WHEN` shape as the build plan. Tasks are depend
 4. Add the `<conf>` instruction at the end of the static block (not in dynamic content) — it's the same every turn.
 
 **Watch:** vLLM's prefix cache keys on the byte-identical prefix. ONE changed character invalidates the cache. Lint with `assert prompt == EXPECTED_PROMPT` in a unit test. This is the precondition that lets A and H inject per-turn signals without paying the cache miss.
+**Reconciling with build-plan L1:** that note says *"prefix-cache toggling is not available — the model is hosted."* Correct — there is no server-side toggle we can flip. This optimization doesn't toggle anything; it makes the *client-side* prefix byte-identical so the hosted vLLM's already-running prefix cache hits reliably across turns and calls. Different lever, no conflict — L1's GPT-vs-Nemotron table is still the headline; B is an additional row in §9's table.
 **DONE WHEN:** system prompt is byte-identical across 5 consecutive calls; TTFT on turn 2 is measurably lower than turn 1.
 
 ### C ⛔ — Pre-cached TTS for fixed phrases
@@ -204,7 +205,7 @@ Same `Actions` / `Watch` / `DONE WHEN` shape as the build plan. Tasks are depend
 
 **Actions:**
 1. Wrap mock tool functions in a cache-aware executor that consults `state.prefetch_cache` before executing.
-2. Add hooks on tool completion: when `get_alerts()` returns, kick off `asyncio.create_task(get_deploy_history())` and `asyncio.create_task(get_logs(alerted_service))` in the background, store results in `state.prefetch_cache`.
+2. Add hooks on tool completion: when `get_alerts()` returns, kick off `asyncio.create_task(get_deploy_history())` and `asyncio.create_task(get_logs(alerted_service))` in the background, store results in `state.prefetch_cache`. **Read `alerted_service` from the structured `alert` event payload (`lld-backend.md` §3 — `payload.service`), NOT from the tool's summary string** — that summary is prose-only by LLD §5.1 contract. Simplest wiring: have the cache-aware executor subscribe to the same EventBus the relay uses, or keep the most-recent `alert` event on `state` for the prefetcher to read.
 3. When `state.incident_hypothesis` is set by H, prefetch that incident's "typical evidence path" (e.g. incident #1 → also prefetch metrics for payments-db pool).
 4. Prefetch cache keyed on `(tool_name, frozenset(args.items()))`. TTL = the entire call.
 
@@ -287,7 +288,69 @@ This loop is **post-MVP** (see Section 0). It does not splice into Phase 1 — i
 
 ---
 
-## 8. Headline measurement (the slide)
+## 8. Cekura test updates per optimization
+
+The baseline `cekura-eval-plan.md` suite (9 metrics, 9 scenarios E1–E9) was authored for the **stock** agent. Each optimization needs paired Cekura updates so the headline table (§9) is backed by an actually-scored pass/fail, not vibes. Author new metrics with `/create-metric` and new scenarios with `/manual-create-update-eval`, in the same dependency order as §6 — author the metric **before** flipping the toggle, so the rerun records the new score.
+
+For each optimization, three deliverables: **new metrics**, **new/extended scenarios**, **run protocol** (toggle on/off, rerun targets, pass criterion).
+
+### 8.1 B — prefix-stable system prompt
+- **New metrics:** none. The win is latency, captured by Cekura's built-in per-turn TTFT for Pipecat agents.
+- **Scenario updates:** none — reuse E1, E5, E7 (longest conversations → most cache hits).
+- **Run protocol:** tag runs `OPT_B=off` vs `OPT_B=on`; rerun E1, E5, E7 twice in each mode; compare median **turn-2+ TTFT**.
+- **Pass criterion:** median turn-2+ TTFT under `OPT_B=on` is ≥30% lower.
+- **Out-of-band (not Cekura):** unit test `test_prompt_stability.py` asserts the system-prompt string is byte-identical across 5 simulated session_start calls. Cekura can't see this directly.
+
+### 8.2 C — pre-cached TTS
+- **New metric:** **`M_first_audio_latency`** — numeric ms (observability, not pass/fail). Cekura already records call-start audio onset; expose it as a scored field via `/create-metric` with a numeric rubric.
+- **Scenario updates:** add **E10 `cold_open_latency`** — caller stays silent for 2 s after connect; bot must speak its greeting first. Scores `M_first_audio_latency` only.
+- **Run protocol:** run E10 + E1 with `OPT_C` on/off.
+- **Pass criterion:** E10 first-audio latency under `OPT_C=on` is <200 ms (vs ~1200 ms baseline).
+
+### 8.3 G — confidence + termination controller
+- **New metrics (3):**
+  - **T7 `terminated_efficiently`** — *PASS/FAIL.* When the agent has stated a root cause backed by ≥3 evidence items, it concludes within the next turn rather than re-summarizing or fetching redundant data. Scored on convergent scenarios (E1, E3, E4).
+  - **T8 `dug_when_uncertain`** — *PASS/FAIL.* When evidence is incomplete (missing categories from `{alerts, deploys, logs, metrics}`) AND no root cause stated, the agent asks one targeted question OR calls one missing-category tool before concluding. Scored on ambiguous scenarios (E5, E6).
+  - **T9 `no_metadata_leak`** — *PASS/FAIL.* The agent **never speaks** `<conf>` or any internal control token aloud — must be stripped before TTS. Scored on every scenario (cheap to score, high-cost if it leaks).
+- **Scenario updates:** E1/E3/E4 success criteria += T7; E5 += T8; **all** scenarios += T9.
+- **Run protocol:** rerun E1 (expect fewer turns), E5 (expect more probing) with `OPT_G` on; spot-check T9 across the suite.
+- **Pass criterion:** E1 turns-to-resolution drops ≥1; E5 PASSes T8; every scenario PASSes T9.
+
+### 8.4 A — per-turn thinking gate
+- **New metric (optional):** **T10 `thinking_budget_respected`** — *PASS/FAIL, suite-level.* Average call wall-time under `OPT_A=on` is within +15% of `OPT_A=off`, despite thinking being enabled on hard turns — proves the gate is selective, not always-on. Scored at suite level, not per-call.
+- **Scenario updates:** none required — T1 already exists; A is what flips E2/E4 from FAIL→PASS. Optional **E11 `routing_tiebreak`**: pin `DEMO_NOW` to a time where two engineers tie on team match (e.g. Priya AND Raj both own `database` and are awake) — forces a reasoned discrimination with thinking-ON.
+- **Run protocol:** rerun E2 + E4 with `OPT_A` off then on. The on-run must move T1 from FAIL→PASS. Capture suite wall-time for T10.
+- **Pass criterion:** E2 + E4 both PASS T1 under `OPT_A=on`; suite wall-time within +15% of baseline.
+
+### 8.5 H — semantic incident match
+- **New metric:** **T11 `hint_not_blindly_accepted`** — *PASS/FAIL.* When a `semantic_match` tool-result is in the conversation history but the gathered evidence diverges from it, the agent reaches the **evidence-correct** root cause, not the hint. Scored on E2 (#2 looks like #1) and E12 below.
+- **Scenario updates:**
+  - **E12 `wrong_match_adversarial`** — opener: *"Everything's failing over HTTPS, certs maybe?"* — engineered to fuzzy-match #1 (payments-db pool) above the 0.85 threshold despite being #3 (cert expiry). Expected: root cause = expired cert, page **lena**. Scores T1 + T11.
+  - E2 success criteria += T11.
+- **Run protocol:** rerun E5 (expect turns drop), E2 (must STILL pass T1 + new T11), E12 with `OPT_H` on.
+- **Pass criterion:** E5 turns drop ≥2; E2 + E12 both PASS T11.
+
+### 8.6 E — speculative tool prefetch
+- **New metric:** **T12 `prefetch_no_redundancy`** — *1–5.* Agent does not re-issue tool calls for data already prefetched and visible in the conversation as a fresh tool result. Lower scores when transcript shows the same tool fired twice within 2 turns with identical args.
+- **Scenario updates:** none — reuse E1, E3, E4 (multi-tool investigations).
+- **Run protocol:** rerun E1, E3, E4 with `OPT_E` on/off.
+- **Pass criterion:** E1 average tool-call count drops ≥1; E1 wall-time drops 2–4 s; T12 ≥4 across the rerun set.
+
+### 8.7 Roll-up — deltas to `cekura-eval-plan.md`
+
+Apply these alongside the matching optimization, in the §6 dependency order. They are the exact patches the eval-plan owner needs to merge.
+
+| Eval-plan section | Delta |
+|---|---|
+| §2 Metrics | + **T7, T8, T9, T10, T11, T12, `M_first_audio_latency`** (6 PASS/FAIL or scalar metrics + 1 numeric observability). T7/T9 are highest-leverage — they catch the most regressions. |
+| §4 Scenarios | + **E10** (cold-open latency), **E11** (routing tiebreak — optional), **E12** (wrong-match adversarial). Extend E1/E3/E4 with T7; E5 with T8; E2 with T11; all scenarios with T9. |
+| §5 Run order | Each optimization rerun yields a column tagged `OPT_X=on`; §9's headline table pulls from these columns. Capture the baseline column **before** any optimization lands (it's frozen — re-deriving it once optimizations are in flight is invalid). |
+
+The eval suite grows from 9 → 12 scenarios and 9 → 16 metrics over the optimization layer. None of these replace existing metrics — they extend the scoreboard so each new lever has its own dedicated row.
+
+---
+
+## 9. Headline measurement (the slide)
 
 Run the **same Cekura suite** (E1–E9) against two configurations: (1) stock starter, (2) concentrated loop. Same model, same TTS, same eval scenarios. Two columns:
 
@@ -307,7 +370,7 @@ Every row maps to a Cekura metric you already authored. The eval suite **backs t
 
 ---
 
-## 9. Cut list (under time pressure)
+## 10. Cut list (under time pressure)
 
 In priority order, what to drop if the day compresses:
 
@@ -321,13 +384,13 @@ So the irreducible minimum is **B + C + G + A** (~2h45m). G can be a half-implem
 
 ---
 
-## 10. The 90-second pitch (for the judges' slide)
+## 11. The 90-second pitch (for the judges' slide)
 
 > We composed six optimizations into one loop. Static prep — pre-rendered TTS, frozen prompt prefix, pre-embedded incidents — runs at deploy time so the call starts hot. Per turn, we track confidence and evidence in shared state. A semantic match against past incidents seeds a hypothesis we can confirm or reject; that hypothesis biases what we prefetch in the background, so by the time the LLM asks for the deploy log it's already cached. The model's own confidence drives a thinking gate — we burn reasoning compute only when it matters: on turns four-plus when we're still uncertain, or right before a routing decision. We terminate when confidence converges and dig deeper when it doesn't. Same Nemotron, same Gradium, same Pipecat — four-times faster on first-audio, two-times faster on TTFT, and we pass the discrimination scenarios the stock starter fails.
 
 ---
 
-## 11. What this does NOT claim
+## 12. What this does NOT claim
 
 To stay honest in front of judges who will press on details:
 

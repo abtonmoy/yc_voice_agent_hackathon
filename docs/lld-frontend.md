@@ -51,14 +51,21 @@ On a narrow screen, stack `trace` over `code` (media query) — but the demo tar
 
 ## 3. Tech & files
 
+The dashboard is a **laptop-only artifact** — it must NOT live under `server/` (which deploys to Pipecat Cloud, per `lld-backend.md` §2). Place it at the repo root alongside `relay/`:
+
 ```
-dashboard/
-  index.html     # the 4 regions
-  style.css      # tokens + grid + diff animation
-  app.js         # EventSource client, state, renderers
+yc-voice-agents-hackathon/
+  server/          # deployed — NOT touched by frontend work
+  relay/
+    relay.py
+  dashboard/       # ← THIS
+    index.html     # the 4 regions
+    style.css      # tokens + grid + diff animation
+    app.js         # EventSource client, state, renderers
 ```
-- Serve with `python -m http.server` or let the relay serve it statically. Open in a full-screen browser tab.
+- Serve with `python -m http.server 7000` from the `dashboard/` directory, or wire the relay to serve it statically (`StaticFiles(directory="../dashboard")` if you want one process). Open in a full-screen browser tab.
 - **No React/bundler.** Vanilla DOM. ~300 lines of JS total.
+- The dashboard talks only to the relay (`RELAY_URL`); it never imports or knows about anything in `server/`.
 
 ---
 
@@ -95,7 +102,7 @@ An ordered, autoscrolling feed. Each event → one line with a **monochrome glyp
 | `transcript` agent | `agent ‹ checking recent deploys…` |
 | `tool_call` | `  →  get_logs(payments-api)` (dim) |
 | `tool_result` | `  ↳  200× connection-refused @14:32` (dim) |
-| `hypothesis` | `  ~  hypothesis 0.8 · pool exhausted` |
+| `hypothesis` | `  ~  hypothesis 0.8 · pool exhausted` (confidence is **optional in MVP** — render as `  ~  hypothesis · pool exhausted` when the field is absent; the `0.X` only appears once `optimization-plan.md` Opt G is on, per `lld-backend.md` §13) |
 | `rca` | `  ■  ROOT CAUSE  deploy abc123 → db pool` (bold) |
 | `routing_decision` | `  ☎  PAGE → Priya · London 11:00 · owns db` (bold) |
 | `fix_proposed` | `  ±  propose fix · app/db.py` |
