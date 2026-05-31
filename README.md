@@ -22,7 +22,7 @@ Plus a live trace dashboard (vanilla DOM, SSE) that renders the agent's autonomo
 
 ## 2. Demo video (under 60 seconds)
 
-> 📹 **[demo.mp4](./demo.mp4)** — *to be uploaded by submission*
+> 📹 **[demo.mp4](./yc-voice-agents-hackathon/demo.mp4)** — *to be uploaded by submission*
 
 The video shows: phone call → "payments API is throwing 500s" → agent investigates (you hear it say "checking recent deploys," "looking at the connection pool metrics") → states root cause → pages Priya in London (her phone rings on screen) → "want me to apply the fix?" → "yes" → diff highlights in the dashboard → done.
 
@@ -176,7 +176,7 @@ Nothing else from the starter survived — the flower-shop bot is gone, the prom
 ## 6. Live link
 
 - 📞 **Phone the live agent:** `+1 385 218 6732` (US, voice-capable Twilio number; agent answers as on-call triage).
-- 🌐 **Dashboard:** runs locally — see [DEMO.md](./DEMO.md) §3 for the relay + tunnel setup, or play back a recorded run from `dashboard/fixtures/events.ndjson`.
+- 🌐 **Dashboard:** runs locally — see [DEMO.md](./yc-voice-agents-hackathon/DEMO.md) §3 for the relay + tunnel setup, or play back a recorded run from `dashboard/fixtures/events.ndjson`.
 - 💻 **Source:** this repo. The whole thing reproducible from `uv sync` + the env vars in `server/.env.example`.
 
 ---
@@ -206,9 +206,11 @@ phone ──Twilio──► Pipecat Cloud (bot-claude.py)
 
 ## Try it locally
 
+> All shell commands below assume you're inside the project subdirectory: `cd yc-voice-agents-hackathon`.
+
 ```bash
 # clone, install
-cd server
+cd yc-voice-agents-hackathon/server
 cp .env.example .env       # fill in keys (Anthropic OR OpenAI OR Nemotron; Gradium; Twilio for telephony)
 uv sync
 
@@ -234,36 +236,37 @@ DASHBOARD_DIR=../dashboard uv run --no-project --with fastapi --with uvicorn \
 uv run python cekura_run.py   # uses .cekura_state.json for agent/scenario IDs
 ```
 
-**Full deploy + outbound calling**: see [DEMO.md](./DEMO.md).
+**Full deploy + outbound calling**: see [DEMO.md](./yc-voice-agents-hackathon/DEMO.md).
 
 ---
 
 ## Repo map
 
 ```
-docs/                         # LLDs, optimization plan, Cekura eval plan, build plan
-server/
-  bot-{claude,nemotron,gpt}.py     # three LLM variants, shared triage core
-  triage.py                        # system prompt + tool registration
-  tools.py                         # diagnostic / routing / remediation tools
-  mock_backend.py                  # INCIDENTS + ENGINEERS fixtures
-  triage_state.py                  # InvestigationState + <conf> parsing (pure stdlib)
-  conf_filter.py                   # Opt G: <conf> FrameProcessor (LLM→TTS stream)
-  semantic_match.py                # Opt H: incident hypothesis injector
-  prefetch.py                      # Opt E: speculative tool prefetch
-  tts_cache.py                     # Opt C: pre-rendered Gradium opener
-  events.py · relay.py             # event bus + standalone FastAPI relay
-  telephony.py · place_call.py     # outbound Twilio integration
-  cekura_run.py                    # 8-scenario suite runner
-  bench_{llm,accuracy,graph}.py    # benchmark harness (incl. the Nemotron A/B table above)
-  tests/                           # ~11 test files (test_optimizations.py = 640 lines)
-dashboard/
-  index.html · app.js · style.css  # vanilla-DOM trace + live diff
-  fixtures/events.ndjson           # replayable recorded run
-sample-service/                    # monitored service repo with planted bugs
-  app/{db.py, batch_jobs.py, tax_service.py}
-DEMO.md                            # end-to-end runbook (call, dashboard, eval, teardown)
-README.md                          # you are here
+README.md                              # you are here
+yc-voice-agents-hackathon/             # the project (everything below)
+  DEMO.md                              # end-to-end runbook (call, dashboard, eval, teardown)
+  docs/                                # LLDs, optimization plan, Cekura eval plan, build plan
+  server/
+    bot-{claude,nemotron,gpt}.py       # three LLM variants, shared triage core
+    triage.py                          # system prompt + tool registration
+    tools.py                           # diagnostic / routing / remediation tools
+    mock_backend.py                    # INCIDENTS + ENGINEERS fixtures
+    triage_state.py                    # InvestigationState + <conf> parsing (pure stdlib)
+    conf_filter.py                     # Opt G: <conf> FrameProcessor (LLM→TTS stream)
+    semantic_match.py                  # Opt H: incident hypothesis injector
+    prefetch.py                        # Opt E: speculative tool prefetch
+    tts_cache.py                       # Opt C: pre-rendered Gradium opener
+    events.py · relay.py               # event bus + standalone FastAPI relay
+    telephony.py · place_call.py       # outbound Twilio integration
+    cekura_run.py                      # 8-scenario suite runner
+    bench_{llm,accuracy,graph}.py      # benchmark harness (incl. the Nemotron A/B table above)
+    tests/                             # ~11 test files (test_optimizations.py = 640 lines)
+  dashboard/
+    index.html · app.js · style.css    # vanilla-DOM trace + live diff
+    fixtures/events.ndjson             # replayable recorded run
+  sample-service/                      # monitored service repo with planted bugs
+    app/{db.py, batch_jobs.py, tax_service.py}
 ```
 
 ---
