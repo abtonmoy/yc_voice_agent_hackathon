@@ -54,6 +54,8 @@ All five share one per-call `InvestigationState` object (`triage_state.py`) that
 
 **We self-hosted `nvidia/nemotron-3-super` on an NVIDIA B200**, FP4-quantized (`unsloth/NVIDIA-Nemotron-3-Super-120B-A12B-NVFP4`), with FlashInfer attention, exposed over a Cloudflare QUIC tunnel to the orchestrator. This replaces the provided AWS-hosted BF16 fleet — and it's faster on the metrics that decide voice UX:
 
+![LLM backend benchmark — throughput (tok/s) and total end-to-end latency (ms): Nemotron-ours (Cloudflare QUIC) beats both Claude haiku-4-5 and the AWS-provider Nemotron](./docs/inference-gains.jpg)
+
 | backend | total response time | output tok/s |
 |---|---:|---:|
 | Claude haiku-4-5 (Anthropic) | 2,109 ms | 86 |
