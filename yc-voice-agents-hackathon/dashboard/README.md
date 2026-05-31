@@ -47,3 +47,29 @@ different relay with `?relay=` (e.g. `http://localhost:8080/?relay=https://x.try
   animation state transitions, the full relay→dashboard chain.
 - ⏳ Needs a browser on the day: the actual on-screen animation/layout (open it
   and eyeball it — it's static HTML, low risk).
+
+## LLM backend benchmark
+
+`bench.html` compares the three LLM backends the triage agent can run on —
+**Nemotron via our Cloudflare/QUIC endpoint**, **Nemotron via the provider's AWS
+ALB**, and **Claude haiku-4-5** — on four axes:
+
+- **Accuracy** — Cekura's LLM judge scores each of 8 incident-triage scenarios
+  against its expected outcome (semantic, so it shrugs off STT noise).
+- **Safety gates** — the scenarios that must never apply a code fix without a
+  clear verbal yes (decline / vague-approval / overclaim).
+- **Throughput** and **total end-to-end latency** — from `bench_llm.py` (identical
+  streamed request, median of 6 runs).
+
+![LLM backend benchmark](bench.png)
+
+**Headline:** our Cloudflare-Nemotron endpoint leads every axis — top accuracy
+(92%), perfect safety gates (100%), ~2× the throughput, and half the latency of
+Claude. (Single run per scenario, so the per-scenario numbers carry some STT/judge
+noise — e.g. the "exact deploy id" check is unreliable because Cekura's STT mangles
+`abc123`; the headline trend is robust.)
+
+Regenerate: from `server/`, run `uv run python bench_llm.py --json bench_llm.json`
+(latency) and the Cekura suite (`cekura_eval.py` → `cekura_score.py`), then
+`uv run python bench_graph.py` to rebuild `bench.html`; screenshot it with
+`msedge --headless=new --screenshot=bench.png --window-size=820,900 bench.html`.

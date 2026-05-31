@@ -17,6 +17,7 @@ import os
 HERE = os.path.dirname(os.path.abspath(__file__))
 SRC = os.path.join(HERE, "bench_llm.json")
 ACC = os.path.join(HERE, "bench_accuracy.json")
+CEK = os.path.join(HERE, "cekura_scores.json")  # Cekura LLM-judge scores per backend
 OUT = os.path.join(HERE, "..", "dashboard", "bench.html")
 
 # Which row is "ours" — highlighted in the accent colour.
@@ -84,6 +85,35 @@ def _acc_bars(rows, acc):
     return "\n".join(out)
 
 
+def _cekura_bars(rows, scores, key, *, unit="%"):
+    """0-100 bar per backend from cekura_scores.json[name][key], same row order and
+    style as the latency charts. Higher is better; "ours" in accent, best in ink."""
+    vals = {r["name"]: (scores.get(r["name"], {}) or {}).get(key) for r in rows}
+    present = [v for v in vals.values() if isinstance(v, (int, float))]
+    best = max(present) if present else None
+    out = []
+    for r in rows:
+        v = vals.get(r["name"])
+        cls = "bar"
+        if OURS_MARK in r["name"].lower():
+            cls += " ours"
+        if isinstance(v, (int, float)):
+            pct = max(0.0, min(100.0, float(v)))
+            if best is not None and v == best:
+                cls += " best"
+            val = f'{v:.0f}<span class="unit">{unit}</span>'
+        else:
+            pct = 0.0
+            cls += " unmeasured"
+            val = '<span class="unit">not measured</span>'
+        out.append(
+            f'<div class="row"><div class="lbl">{html.escape(r["name"])}</div>'
+            f'<div class="track"><div class="{cls}" style="width:{pct:.1f}%"></div></div>'
+            f'<div class="val">{val}</div></div>'
+        )
+    return "\n".join(out)
+
+
 def main() -> None:
     with open(SRC) as f:
         data = json.load(f)
@@ -91,18 +121,17 @@ def main() -> None:
     if not rows:
         raise SystemExit("no successful backends in bench_llm.json")
 
-    with open(ACC) as f:
-        acc = json.load(f).get("backends", {})
+    cek = {}
+    if os.path.exists(CEK):
+        cek = json.load(open(CEK))
 
-    # Accuracy: transcript-rubric 0-100. Throughput: higher better. Total e2e: lower.
-    accuracy = _acc_bars(rows, acc)
-    any_measured = any(a.get("measured") for a in acc.values())
-    acc_hint = ("per-scenario rubric, scored from the call transcript &middot; "
-                "higher is better") if any_measured else (
-        "no valid measurement yet &mdash; every Cekura run captured "
-        "<b>zero agent dialogue</b>, so the Expected&nbsp;Outcome metric never ran "
-        "(the old 8/8 was just “call connected”). Re-run with a fixed "
-        "English persona to populate this.")
+    # Accuracy + safety: Cekura LLM-judge (0-100). Throughput/e2e from the latency bench.
+    accuracy = _cekura_bars(rows, cek, "score")
+    gates = _cekura_bars(rows, cek, "gate_score")
+    n_note = next((f'{c.get("n_measured")}/{c.get("n_total")} scenarios scored'
+                   for c in cek.values() if c.get("n_total")), "")
+    acc_hint = (f"Cekura LLM judge vs each scenario's expected outcome &middot; "
+                f"{n_note} &middot; higher is better")
     tput = _bars(rows, "tok_s_median", unit=" tok/s", lower_is_better=False)
     e2e = _bars(rows, "total_ms_median", unit=" ms", lower_is_better=True)
     runs = rows[0].get("runs", "?")
@@ -160,6 +189,12 @@ def main() -> None:
       <h2>Accuracy</h2>
       <p class="hint">{acc_hint}</p>
       {accuracy}
+    </div>
+
+    <div class="chart">
+      <h2>Safety gates</h2>
+      <p class="hint">decline / vague-approval / overclaim &middot; never apply a fix without a clear verbal yes &middot; higher is better</p>
+      {gates}
     </div>
 
     <div class="chart">

@@ -49,10 +49,18 @@
 
     <div class="chart">
       <h2>Accuracy</h2>
-      <p class="hint">no valid measurement yet &mdash; every Cekura run captured <b>zero agent dialogue</b>, so the Expected&nbsp;Outcome metric never ran (the old 8/8 was just “call connected”). Re-run with a fixed English persona to populate this.</p>
-      <div class="row"><div class="lbl">Claude haiku-4-5 (current)</div><div class="track"><div class="bar unmeasured" style="width:0.0%"></div></div><div class="val"><span class="unit">not measured</span></div></div>
-<div class="row"><div class="lbl">Nemotron — ours (Cloudflare QUIC)</div><div class="track"><div class="bar ours unmeasured" style="width:0.0%"></div></div><div class="val"><span class="unit">not measured</span></div></div>
-<div class="row"><div class="lbl">Nemotron — provider (AWS ALB)</div><div class="track"><div class="bar unmeasured" style="width:0.0%"></div></div><div class="val"><span class="unit">not measured</span></div></div>
+      <p class="hint">Cekura LLM judge vs each scenario's expected outcome &middot; 8/8 scenarios scored &middot; higher is better</p>
+      <div class="row"><div class="lbl">Claude haiku-4-5 (current)</div><div class="track"><div class="bar" style="width:68.8%"></div></div><div class="val">69<span class="unit">%</span></div></div>
+<div class="row"><div class="lbl">Nemotron — ours (Cloudflare QUIC)</div><div class="track"><div class="bar ours best" style="width:91.7%"></div></div><div class="val">92<span class="unit">%</span></div></div>
+<div class="row"><div class="lbl">Nemotron — provider (AWS ALB)</div><div class="track"><div class="bar" style="width:71.4%"></div></div><div class="val">71<span class="unit">%</span></div></div>
+    </div>
+
+    <div class="chart">
+      <h2>Safety gates</h2>
+      <p class="hint">decline / vague-approval / overclaim &middot; never apply a fix without a clear verbal yes &middot; higher is better</p>
+      <div class="row"><div class="lbl">Claude haiku-4-5 (current)</div><div class="track"><div class="bar best" style="width:100.0%"></div></div><div class="val">100<span class="unit">%</span></div></div>
+<div class="row"><div class="lbl">Nemotron — ours (Cloudflare QUIC)</div><div class="track"><div class="bar ours best" style="width:100.0%"></div></div><div class="val">100<span class="unit">%</span></div></div>
+<div class="row"><div class="lbl">Nemotron — provider (AWS ALB)</div><div class="track"><div class="bar" style="width:66.7%"></div></div><div class="val">67<span class="unit">%</span></div></div>
     </div>
 
     <div class="chart">
