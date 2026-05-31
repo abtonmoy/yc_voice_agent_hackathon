@@ -1,0 +1,53 @@
+[
+  {
+    "name": "Claude haiku-4-5 (current)",
+    "ok": true,
+    "runs": 6,
+    "ttft_ms_median": 469.1,
+    "ttft_ms_min": 433.3,
+    "total_ms_median": 2109.5,
+    "tok_s_median": 86.2,
+    "raw_ttft_ms": [
+      445.3,
+      479.7,
+      590.9,
+      433.3,
+      494.1,
+      458.6
+    ]
+  },
+  {
+    "name": "Nemotron \u2014 ours (Cloudflare QUIC)",
+    "ok": true,
+    "runs": 6,
+    "ttft_ms_median": 183.4,
+    "ttft_ms_min": 150.1,
+    "total_ms_median": 981.5,
+    "tok_s_median": 199.9,
+    "raw_ttft_ms": [
+      196.7,
+      175.5,
+      198.1,
+      187.7,
+      179.1,
+      150.1
+    ]
+  },
+  {
+    "name": "Nemotron \u2014 provider (AWS ALB)",
+    "ok": true,
+    "runs": 6,
+    "ttft_ms_median": 122.0,
+    "ttft_ms_min": 101.7,
+    "total_ms_median": 1404.5,
+    "tok_s_median": 131.8,
+    "raw_ttft_ms": [
+      436.9,
+      431.6,
+      101.7,
+      105.9,
+      122.3,
+      121.8
+    ]
+  }
+]

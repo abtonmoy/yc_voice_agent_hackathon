@@ -1,0 +1,4 @@
+{"id": "evt_000000", "seq": 0, "ts": 1000, "session_id": "s", "type": "alert", "payload": {"n": 0}}
+{"id": "evt_000001", "seq": 1, "ts": 1001, "session_id": "s", "type": "code_fix", "payload": {"n": 1}}
+{"id": "evt_000001", "seq": 1, "ts": 1001, "session_id": "s", "type": "code_fix", "payload": {"n": 1}}
+{"id": "evt_000001", "seq": 1, "ts": 1001, "session_id": "s", "type": "code_fix", "payload": {"n": 1}}

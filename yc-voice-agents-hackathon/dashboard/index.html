@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Mission Control — Incident Triage</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <!-- HEADER -->
+  <header id="header">
+    <span id="hdr-incident" class="hdr-strong">—</span>
+    <span class="hdr-sep">•</span>
+    <span id="hdr-session" class="hdr-dim">—</span>
+    <span class="hdr-sep">•</span>
+    <span id="hdr-v2v" class="hdr-dim">V2V —</span>
+    <span id="conn-dot" class="conn-dot" title="connection"></span>
+  </header>
+
+  <!-- TRACE / TRANSCRIPT (left) -->
+  <section id="trace" class="trace">
+    <div id="trace-feed" class="trace-feed"></div>
+  </section>
+
+  <!-- CODE HERO (right) -->
+  <section id="code" class="code">
+    <div class="code-head">
+      <span class="code-label">CODE</span>
+      <span id="code-file" class="code-file">—</span>
+      <span id="code-tag" class="code-tag"></span>
+    </div>
+    <pre id="code-diff" class="code-diff"></pre>
+  </section>
+
+  <!-- METRICS (curves) -->
+  <section id="metrics" class="metrics">
+    <div class="metric-cell">
+      <div class="metric-head"><span class="metric-key">V2V LATENCY</span><span id="lat-stat" class="metric-stat">—</span></div>
+      <div id="lat-curve" class="curve"></div>
+    </div>
+    <div class="metric-cell">
+      <div class="metric-head"><span class="metric-key">WATERFALL · avg ms</span></div>
+      <div id="waterfall" class="waterfall"></div>
+    </div>
+    <div class="metric-cell">
+      <div class="metric-head"><span class="metric-key">CEKURA</span><span id="cekura-rate" class="metric-stat">—</span></div>
+      <div id="cekura-dots" class="cekura-dots"></div>
+    </div>
+  </section>
+
+  <!-- STATUS STRIP (bottom) -->
+  <footer id="status" class="status">
+    <div class="status-cell logs-cell">
+      <span class="status-key">LOGS</span>
+      <span id="logs-tail" class="logs-tail">…tailing…</span>
+    </div>
+    <div class="status-cell paged-cell">
+      <span class="status-key">PAGED</span>
+      <span id="paged-dot" class="paged-dot"></span>
+      <span id="paged-text" class="paged-text">—</span>
+    </div>
+    <div class="status-cell cekura-cell">
+      <span class="status-key">CEKURA</span>
+      <span id="cekura-text" class="cekura-text">—</span>
+    </div>
+  </footer>
+
+  <script>
+    const RELAY_URL = (new URLSearchParams(location.search)).get('relay') || 'http://localhost:8080';
+  </script>
+  <script src="app.js"></script>
+</body>
+</html>

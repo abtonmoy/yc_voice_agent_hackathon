@@ -1,0 +1,28 @@
+# Keep the build context clean and small. The deployed agent only needs
+# bot.py (from bot-claude.py), triage.py, events.py, mock_backend.py, tools/,
+# plus pyproject.toml + uv.lock for the dependency install.
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+.venv/
+venv/
+
+# secrets + local-only files (secrets are uploaded as a Pipecat secret set)
+.env
+.env.example
+
+# tests, fixtures, scratch — not needed in the image
+tests/
+*.ndjson
+_*.ndjson
+
+# local-only scripts / unused bots
+relay.py
+simulate_and_call.py
+bot-gpt.py
+
+# tunnel binary (local only)
+cloudflared.exe
+*.exe

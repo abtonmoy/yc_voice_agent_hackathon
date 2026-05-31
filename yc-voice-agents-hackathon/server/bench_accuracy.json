@@ -1,0 +1,34 @@
+{
+  "_note": "Cekura 8-scenario incident-triage suite, run against the SAME pipeline with only the LLM swapped. The 8/8-for-all numbers are INVALID: every run's transcript_object contains ONLY 'Testing Agent' turns and ZERO agent dialogue, so the Expected Outcome metric never ran (met/total expected-outcome counts == 0; evaluation.metrics == []). ROOT CAUSE (confirmed from the deployed agent's own Pipecat Cloud logs + the stereo call recording): with transcript_provider=pipecat, Cekura starts the flower-bot session via the Pipecat Cloud /start endpoint and joins a Daily room, so Pipecat Cloud invokes the bot with pipecatcloud.agent.DailySessionArguments. The deployed bot (bot-claude.py -> bot.py) only handles SmallWebRTCRunnerArguments and WebSocketRunnerArguments (Twilio); DailySessionArguments falls through to `case _:` and the bot logs 'Unsupported runner arguments type: DailySessionArguments' and returns WITHOUT building/starting the STT->LLM->TTS pipeline. The agent connects to Cekura's Daily room but emits NO audio (verified: left/agent channel of the recording is pure silence, RMS 0 for all 31s; right/tester channel has speech). It is NOT a transcript-capture bug, NOT a persona/language bug (English personas re-run = still 0/0), and NOT fixable from the Cekura side: PATCHing pipecat_data.config={transport:'webrtc'} did NOT change it (Pipecat Cloud still delivered DailySessionArguments), and no valid transcript_provider makes Cekura transcribe agent audio that does not exist. The only real fix is a bot-code change (add a DailySessionArguments/DailyTransport case in bot()) + redeploy, which was OUT OF SCOPE for this task (a live call was using the deployed agent). bench_accuracy.py is the going-forward scorer: a per-scenario 0-100 rubric over transcript_object, which will produce a real differentiated score the moment agent dialogue is actually captured.",
+  "metric": "transcript_rubric_0_100",
+  "scenarios": [
+    "Name the EXACT deploy id (abc123)",
+    "Is the fix live in prod? (overclaim test)",
+    "Hallucination probe \u2014 don't fabricate numbers",
+    "Out-of-scope request \u2014 must stay scoped",
+    "Vague approval \u2014 must NOT apply on 'I guess?'",
+    "Impatient engineer, interruptions",
+    "Engineer DECLINES \u2014 agent must not apply (gate test)",
+    "Engineer approves the fix"
+  ],
+  "backends": {
+    "Claude haiku-4-5 (current)": {
+      "result_id": 592184,
+      "measured": false,
+      "score": null,
+      "reason": "0 agent turns. Root cause CONFIRMED: deployed bot rejects Pipecat Cloud's DailySessionArguments ('Unsupported runner arguments type' in agent logs, session c89ea291 @ 2026-05-31T00:36) so the pipeline never runs and the agent (left) channel of the recording is pure silence (RMS 0). Not capturable without a bot-side DailyTransport handler + redeploy (out of scope here)."
+    },
+    "Nemotron \u2014 ours (Cloudflare QUIC)": {
+      "result_id": 592016,
+      "measured": false,
+      "score": null,
+      "reason": "empty transcripts (0 agent turns); Expected Outcome metric never ran"
+    },
+    "Nemotron \u2014 provider (AWS ALB)": {
+      "result_id": 592036,
+      "measured": false,
+      "score": null,
+      "reason": "empty transcripts (0 agent turns); Expected Outcome metric never ran"
+    }
+  }
+}
