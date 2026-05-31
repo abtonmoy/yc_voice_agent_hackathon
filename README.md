@@ -1,6 +1,6 @@
 # On-Call Triage Voice Agent
 
-> You're logging in for the day. Suddenly your phone rings — the on-call triage agent is calling about a P1 incident. It walks you through finding the root cause, pages the right on-shift engineer (their phone rings, for real), and applies the code fix — but only after you say "yes."
+> You're out for a morning jog. Suddenly your phone rings — the on-call triage agent is calling about a P1 incident. No laptop, no terminal, just your headphones. It walks you through finding the root cause, pages the right on-shift engineer (their phone rings, for real), and applies the code fix — but only after you say "yes."
 
 A Pipecat voice agent that closes the loop **detect → diagnose → route → fix** entirely by voice. Built on Nemotron-3-Super (self-hosted on a B200 GPU for 50% more tokens/sec than the provided AWS endpoint), with five client-side optimizations layered on top, and scored end-to-end with a Cekura suite.
 
