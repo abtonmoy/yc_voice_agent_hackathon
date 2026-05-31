@@ -52,19 +52,19 @@ All five share one per-call `InvestigationState` object (`triage_state.py`) that
 
 ### Nemotron — the headline optimization
 
-**We self-hosted `nvidia/nemotron-3-super` on an NVIDIA B200**, FP4-quantized (`unsloth/NVIDIA-Nemotron-3-Super-120B-A12B-NVFP4`), with FlashInfer attention, exposed over a Cloudflare QUIC tunnel to the orchestrator. This replaces the provided AWS-hosted BF16 fleet — and it's faster on the metrics that decide voice UX:
+**We self-hosted `nvidia/nemotron-3-super` on an NVIDIA B200**, FP4-quantized (`unsloth/NVIDIA-Nemotron-3-Super-120B-A12B-NVFP4`), with FlashInfer attention, exposed over a Cloudflare QUIC tunnel to the orchestrator. This replaces the provided AWS-hosted FP8 fleet — and it's faster on the metrics that decide voice UX:
 
 ![LLM backend benchmark — throughput (tok/s) and total end-to-end latency (ms): Nemotron-ours (Cloudflare QUIC) beats both Claude haiku-4-5 and the AWS-provider Nemotron](./docs/inference-gains.jpg)
 
 | backend | total response time | output tok/s |
 |---|---:|---:|
 | Claude haiku-4-5 (Anthropic) | 2,109 ms | 86 |
-| Nemotron — **AWS provider (BF16)** | 1,404 ms | 132 |
+| Nemotron — **AWS provider (FP8)** | 1,404 ms | 132 |
 | Nemotron — **ours (B200, NVFP4, QUIC)** | **982 ms** | **200** |
 
 *Source: `server/bench_llm.json` — 6 runs per backend, voice-shaped workload (~560 input tok), `enable_thinking=false`.*
 
-The self-hosted Nemotron generates **1.5× more tokens/sec than the provider's BF16 endpoint and 2.3× more than Claude Haiku 4.5**, finishing a typical voice response **30% faster than provider Nemotron and 2.1× faster than Claude**.
+The self-hosted Nemotron generates **1.5× more tokens/sec than the provider's FP8 endpoint and 2.3× more than Claude Haiku 4.5**, finishing a typical voice response **30% faster than provider Nemotron and 2.1× faster than Claude**.
 
 **Speed gains without an accuracy regression.** We ran each backend through the same triage scenarios and confirmed they produce equivalent answers — all three named the correct root cause for the deploy-caused incident (`abc123` exhausted the payments-db pool), cited the right evidence (deploy id + log signature + pool-exhaustion metric), and picked the right on-shift engineer for routing. `server/bench_accuracy.py` is the per-scenario 0–100 rubric scorer that quantifies this automatically; it's ready to fire across all three backends once the Cekura DailyTransport blocker (§5) is patched on the bot's dispatcher.
 
@@ -152,7 +152,7 @@ Nothing else from the starter survived — the flower-shop bot is gone, the prom
 
 **What it does well**
 - **Tool calling is genuinely good.** It picks the right tool, fills args correctly, and rarely hallucinates parameters. This is what makes the voice agent feel competent — the difference between "checking recent deploys" actually calling `get_deploy_history` vs. just saying it.
-- **Open weights + FP4 quant ergonomics**: the unsloth `NVFP4` build is dramatically more accessible than BF16. Running the full 120B model on a single B200 with FlashInfer at 200 tok/s is wild — and it makes "ship your own NVIDIA OSS model" a real option for hackathon teams, not just an aspiration.
+- **Open weights + FP4 quant ergonomics**: the unsloth `NVFP4` build is dramatically more accessible than full-precision weights. Running the full 120B model on a single B200 with FlashInfer at 200 tok/s is wild — and it makes "ship your own NVIDIA OSS model" a real option for hackathon teams, not just an aspiration.
 - **Discrimination on hard incidents** held up: scenario #2 (DB-pool symptom, but caused by a batch job not a deploy) didn't pattern-match to the deploy-caused #1 in our local probes.
 
 **What could be better**
