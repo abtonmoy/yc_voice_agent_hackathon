@@ -143,12 +143,12 @@ async def run_bot(
         ),
     )
 
-    # LLM service. Default is Claude (Anthropic). Set LLM_BACKEND=nemotron to swap
-    # ONLY the LLM for a Nemotron-3-Super vLLM endpoint (NEMOTRON_LLM_URL) while
-    # holding STT/TTS/prompt/tools constant — used for the per-provider accuracy
-    # benchmark (Cekura) so the LLM is the sole variable. The triage system
-    # instruction is a module constant, passed at construction either way.
-    backend = os.getenv("LLM_BACKEND", "claude").lower()
+    # LLM service. Default is Nemotron-3-Super on our self-hosted B200 (NVFP4 +
+    # FlashInfer) via the Cloudflare QUIC tunnel. Set LLM_BACKEND=claude to swap
+    # back to Anthropic Claude as a fallback (same STT/TTS/prompt/tools — used
+    # for the per-provider accuracy A/B). The triage system instruction is a
+    # module constant, passed at construction either way.
+    backend = os.getenv("LLM_BACKEND", "nemotron").lower()
     if backend == "nemotron":
         from nemotron_llm import VLLMOpenAILLMService
 
@@ -156,10 +156,22 @@ async def run_bot(
         session_id = f"nemotron-{uuid.uuid4().hex[:12]}"
         llm = VLLMOpenAILLMService(
             api_key=os.getenv("NEMOTRON_LLM_API_KEY", "EMPTY"),
-            base_url=os.getenv("NEMOTRON_LLM_URL", "http://192.168.7.228:8000/v1"),
+            # Cloudflare-tunneled B200 endpoint; override via NEMOTRON_LLM_URL
+            # if the tunnel URL rotates (free-tier trycloudflare names are
+            # ephemeral — bring up a fresh tunnel + update the secret set).
+            base_url=os.getenv(
+                "NEMOTRON_LLM_URL",
+                "https://bottle-kent-oriented-upload.trycloudflare.com/v1",
+            ),
             settings=VLLMOpenAILLMService.Settings(
                 model=os.getenv("NEMOTRON_LLM_MODEL", "nvidia/nemotron-3-super"),
                 system_instruction=system_instruction(),
+                # chat_template_kwargs must reach vLLM at the TOP LEVEL of the
+                # request body for the chat template to read enable_thinking;
+                # Pipecat forwards Settings.extra as **kwargs to the OpenAI
+                # SDK's chat.completions.create(), where extra_body is the
+                # official kwarg the SDK hoists into the body. Verified by
+                # server/capture_pipecat_outbound.py.
                 extra={"extra_body": {"chat_template_kwargs": {"enable_thinking": enable_thinking}}},
             ),
         )
