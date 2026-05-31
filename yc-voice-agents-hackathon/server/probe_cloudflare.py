@@ -36,17 +36,14 @@ DEFAULT_URL = "https://bottle-kent-oriented-upload.trycloudflare.com/v1"
 MODEL = "nvidia/nemotron-3-super"
 
 # Budget for time-to-first-CONTENT-delta (the moment TTS can start speaking).
-# Generous because vLLM's --reasoning-parser routes any reasoning preamble to
-# delta.reasoning, and the model can still produce reasoning even when
-# enable_thinking=false (chat-template quirk). Content arrives only after the
-# reasoning is done. bench_llm.json's 183 ms median measures first delta of
-# ANY kind (often the first reasoning token) — that's not what the caller
-# feels; the caller feels first CONTENT. We measure the latter.
-TTFT_BUDGET_S = 1.500
+# When chat_template_kwargs.enable_thinking=false is sent correctly (top-level,
+# not nested in extra_body), the model emits content immediately with no
+# reasoning preamble — well under 500 ms. If you see this fail, the flag
+# isn't reaching vLLM in the right shape (run capture_pipecat_outbound.py
+# to verify the wire body).
+TTFT_BUDGET_S = 0.500
 
-# Match the voice agent's per-turn max_tokens so the probe's budget matches
-# real conditions. With reasoning preambles, the budget must cover both for
-# content to actually arrive on simple prompts.
+# Match the voice agent's per-turn max_tokens so the probe matches real usage.
 PROBE_MAX_TOKENS = 256
 
 
@@ -89,7 +86,10 @@ def check_completion(base: str) -> None:
         "max_tokens": PROBE_MAX_TOKENS,
         "temperature": 0,
         "stream": True,
-        "extra_body": {"chat_template_kwargs": {"enable_thinking": False}},
+        # vLLM reads chat_template_kwargs from the TOP LEVEL of the body; nesting
+        # it inside "extra_body" makes the server ignore it. The OpenAI SDK's
+        # extra_body kwarg hoists for you — when sending raw HTTP, place it here.
+        "chat_template_kwargs": {"enable_thinking": False},
     }
     resp = _post_stream(f"{base}/chat/completions", body, timeout=30.0)
     pieces = []
@@ -120,7 +120,10 @@ def check_ttft(base: str) -> None:
         "messages": [{"role": "user", "content": "Hi."}],
         "max_tokens": PROBE_MAX_TOKENS,
         "stream": True,
-        "extra_body": {"chat_template_kwargs": {"enable_thinking": False}},
+        # vLLM reads chat_template_kwargs from the TOP LEVEL of the body; nesting
+        # it inside "extra_body" makes the server ignore it. The OpenAI SDK's
+        # extra_body kwarg hoists for you — when sending raw HTTP, place it here.
+        "chat_template_kwargs": {"enable_thinking": False},
     }
     t0 = time.perf_counter()
     resp = _post_stream(f"{base}/chat/completions", body, timeout=15.0)
@@ -160,7 +163,10 @@ def check_thinking_honored(base: str) -> None:
         "max_tokens": PROBE_MAX_TOKENS,
         "temperature": 0,
         "stream": True,
-        "extra_body": {"chat_template_kwargs": {"enable_thinking": False}},
+        # vLLM reads chat_template_kwargs from the TOP LEVEL of the body; nesting
+        # it inside "extra_body" makes the server ignore it. The OpenAI SDK's
+        # extra_body kwarg hoists for you — when sending raw HTTP, place it here.
+        "chat_template_kwargs": {"enable_thinking": False},
     }
     resp = _post_stream(f"{base}/chat/completions", body, timeout=30.0)
     content_pieces, reasoning_pieces = [], []
