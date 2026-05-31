@@ -22,7 +22,7 @@ Plus a live trace dashboard (vanilla DOM, SSE) that renders the agent's autonomo
 
 ## 2. Demo video (under 60 seconds)
 
-> 📹 **[demo.mp4](./yc-voice-agents-hackathon/demo.mp4)** — *to be uploaded by submission*
+> 📹 **[Watch the demo (Google Drive, under 60s)](https://drive.google.com/file/d/19gorFvOdgflTc5RP0gcoxtLMiDhFWlBY/view?usp=sharing)**
 
 The video shows: phone call → "payments API is throwing 500s" → agent investigates (you hear it say "checking recent deploys," "looking at the connection pool metrics") → states root cause → pages Priya in London (her phone rings on screen) → "want me to apply the fix?" → "yes" → diff highlights in the dashboard → done.
 
