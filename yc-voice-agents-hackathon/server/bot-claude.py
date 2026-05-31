@@ -48,6 +48,10 @@ from pipecat.runner.types import (
     SmallWebRTCRunnerArguments,
     WebSocketRunnerArguments,
 )
+# Pipecat Cloud delivers Daily-room sessions (used by Cekura's transcript_provider=
+# "pipecat" integration) as DailySessionArguments. Without a case for it the bot
+# joins the room but never builds its pipeline → silence → empty Cekura transcript.
+from pipecatcloud.agent import DailySessionArguments
 from pipecat.runner.utils import parse_telephony_websocket
 from pipecat.serializers.twilio import TwilioFrameSerializer
 from pipecat.services.gradium.stt import GradiumSTTService
@@ -213,12 +217,23 @@ async def run_bot(
         )
 
     context = LLMContext(tools=tools)
-    user_aggregator, assistant_aggregator = LLMContextAggregatorPair(
-        context,
-        user_params=LLMUserAggregatorParams(
+    # Turn-taking. FilterIncompleteUserTurnStrategies gates each user turn on the
+    # LLM emitting a ✓/○/◐ completion marker at the start of its reply; only ✓
+    # finalizes the turn. Claude emits these reliably — but Nemotron does NOT, so
+    # with that strategy Nemotron's turns never finalize and it goes SILENT after
+    # the opening briefing (every follow-up is treated as "still speaking"). For
+    # Nemotron we therefore fall back to the default audio-model turn detection
+    # (SmartTurn v3, bundled with pipecat — no LLM markers required).
+    if backend == "claude":
+        user_params = LLMUserAggregatorParams(
             vad_analyzer=SileroVADAnalyzer(),
             user_turn_strategies=FilterIncompleteUserTurnStrategies(),
-        ),
+        )
+    else:
+        user_params = LLMUserAggregatorParams(vad_analyzer=SileroVADAnalyzer())
+    user_aggregator, assistant_aggregator = LLMContextAggregatorPair(
+        context,
+        user_params=user_params,
     )
 
     # Pipeline - assembled from reusable components. Under OPT_G, the
@@ -349,6 +364,23 @@ async def bot(runner_args: RunnerArguments):
                     audio_out_enabled=True,
                     add_wav_header=False,
                     serializer=serializer,
+                ),
+            )
+        case DailySessionArguments():
+            # Daily room session (Pipecat Cloud / Cekura). Build a DailyTransport
+            # from the room_url + token the session carries, mirroring how
+            # pipecat.runner.utils.create_transport constructs it. Daily's native
+            # rates (16 kHz in / 24 kHz out) match run_bot's defaults, so no override.
+            from pipecat.transports.daily.transport import DailyParams, DailyTransport
+
+            transport = DailyTransport(
+                runner_args.room_url,
+                runner_args.token,
+                "flower-bot",
+                params=DailyParams(
+                    audio_in_enabled=True,
+                    audio_in_filter=krisp_filter,
+                    audio_out_enabled=True,
                 ),
             )
         case _:

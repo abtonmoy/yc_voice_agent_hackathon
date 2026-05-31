@@ -16,7 +16,7 @@ import urllib.error
 import urllib.request
 
 BASE = "https://api.cekura.ai"
-PROJECT = 5663
+PROJECT = 5968
 STATE_FILE = ".cekura_state.json"
 
 

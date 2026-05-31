@@ -7,6 +7,11 @@ dependencies = [
     "pipecat-ai[anthropic,gradium,openai,runner,silero,webrtc,websocket]>=1.3.0",
     "pipecatcloud>=0.7.1",
     "tzdata",
+    # Daily transport SDK — needed so the bot can answer Pipecat Cloud / Cekura
+    # Daily-room sessions (the DailySessionArguments case in bot-claude.py). Linux
+    # only: daily-python ships no Windows wheel, and we only run it in the Linux
+    # deploy image, never locally.
+    "daily-python>=0.28; sys_platform == 'linux'",
 ]
 
 [dependency-groups]
